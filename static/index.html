@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>API Methods Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0d0d14;
+    --surface: #14141f;
+    --card: #1a1a2a;
+    --border: #2a2a3d;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --get:    #00d4aa;
+    --post:   #4f9fff;
+    --put:    #f0a500;
+    --patch:  #b06aff;
+    --delete: #ff5566;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Syne',sans-serif; min-height:100vh; }
+
+  header {
+    padding: 2rem 2.5rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; gap: 1rem;
+  }
+  header h1 { font-size: 1.6rem; font-weight:800; letter-spacing:-0.03em; }
+  header span { font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--muted); }
+
+  .layout { display: grid; grid-template-columns: 340px 1fr; min-height: calc(100vh - 70px); }
+
+  /* ── Sidebar ── */
+  .sidebar { border-right: 1px solid var(--border); padding: 1.5rem 1rem; display:flex; flex-direction:column; gap:0.5rem; }
+  .method-btn {
+    display: flex; align-items: center; gap: 12px;
+    padding: 0.75rem 1rem; border-radius: 10px; cursor:pointer;
+    border: 1px solid transparent; background: none; color:var(--text);
+    font-family:'Syne',sans-serif; font-size:0.9rem; font-weight:400;
+    transition: all 0.18s; text-align:left; width:100%;
+  }
+  .method-btn:hover { background: var(--card); border-color: var(--border); }
+  .method-btn.active { background: var(--card); border-color: currentColor; }
+  .badge {
+    font-family:'JetBrains Mono',monospace; font-size:0.65rem; font-weight:600;
+    padding:3px 8px; border-radius:5px; letter-spacing:0.05em;
+    background: color-mix(in srgb, currentColor 15%, transparent);
+    border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+    flex-shrink:0; min-width:58px; text-align:center;
+  }
+  .btn-GET    { color: var(--get); }
+  .btn-POST   { color: var(--post); }
+  .btn-PUT    { color: var(--put); }
+  .btn-PATCH  { color: var(--patch); }
+  .btn-DELETE { color: var(--delete); }
+
+  .sidebar-divider { height:1px; background:var(--border); margin: 0.5rem 0; }
+  .users-list { margin-top:1rem; }
+  .users-list h3 { font-size:0.7rem; font-weight:600; letter-spacing:0.12em; color:var(--muted); text-transform:uppercase; padding: 0 0.5rem; margin-bottom:0.5rem; }
+  .user-chip {
+    display:flex; align-items:center; gap:10px; padding:0.5rem 0.75rem;
+    border-radius:8px; cursor:pointer; transition:background 0.15s;
+    border:1px solid transparent;
+  }
+  .user-chip:hover { background:var(--card); border-color:var(--border); }
+  .user-chip.selected { background:var(--card); border-color:var(--border); }
+  .avatar { width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;flex-shrink:0; }
+  .user-info { min-width:0; }
+  .user-name { font-size:0.82rem; font-weight:600; white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  .user-role { font-size:0.68rem; color:var(--muted); font-family:'JetBrains Mono',monospace; }
+
+  /* ── Main panel ── */
+  .main { display:flex; flex-direction:column; }
+
+  .panel-header {
+    padding: 1.5rem 2rem 1rem;
+    border-bottom: 1px solid var(--border);
+    display:flex; align-items:flex-start; justify-content:space-between; gap:1rem;
+  }
+  .panel-header h2 { font-size:1.2rem; font-weight:800; }
+  .concept-badge {
+    font-family:'JetBrains Mono',monospace; font-size:0.68rem; color:var(--muted);
+    background:var(--card); border:1px solid var(--border); border-radius:6px;
+    padding:4px 10px; white-space:nowrap;
+  }
+  .description { font-size:0.85rem; color:var(--muted); margin-top:0.4rem; max-width:560px; line-height:1.6; }
+
+  .panel-body { padding:1.5rem 2rem; flex:1; display:flex; flex-direction:column; gap:1.5rem; }
+
+  /* URL bar */
+  .url-bar {
+    display:flex; align-items:center; gap:10px;
+    background:var(--card); border:1px solid var(--border); border-radius:10px; padding:0.6rem 1rem;
+    font-family:'JetBrains Mono',monospace; font-size:0.82rem;
+  }
+  .url-method { font-weight:600; font-size:0.75rem; padding:3px 8px; border-radius:5px; }
+  .url-text { color:var(--muted); flex:1; }
+  .url-text span { color:var(--text); }
+
+  /* Form */
+  .form-section { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:1.25rem; }
+  .form-section h3 { font-size:0.7rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:1rem; }
+  .fields { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; }
+  .field { display:flex; flex-direction:column; gap:6px; }
+  .field label { font-size:0.72rem; color:var(--muted); font-family:'JetBrains Mono',monospace; }
+  .field input, .field select {
+    background:#0d0d14; border:1px solid var(--border); border-radius:8px;
+    color:var(--text); padding:0.5rem 0.75rem; font-size:0.85rem; font-family:'Syne',sans-serif;
+    transition:border-color 0.15s; outline:none;
+  }
+  .field input:focus, .field select:focus { border-color:var(--muted); }
+  .field.full { grid-column:1/-1; }
+
+  .note { font-size:0.75rem; color:var(--muted); background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:0.6rem 0.9rem; font-family:'JetBrains Mono',monospace; line-height:1.5; }
+  .note strong { color:var(--text); }
+
+  .send-btn {
+    align-self:flex-start; padding:0.65rem 1.5rem;
+    border:none; border-radius:9px; cursor:pointer;
+    font-family:'Syne',sans-serif; font-size:0.9rem; font-weight:700;
+    transition: all 0.15s; letter-spacing:0.02em;
+  }
+  .send-btn:hover { filter:brightness(1.15); transform:translateY(-1px); }
+  .send-btn:active { transform:translateY(0); }
+
+  /* Response */
+  .response-box { background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .response-head {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0.75rem 1rem; border-bottom:1px solid var(--border);
+  }
+  .response-head span { font-size:0.7rem; font-family:'JetBrains Mono',monospace; color:var(--muted); }
+  .status-pill { font-size:0.68rem; font-family:'JetBrains Mono',monospace; padding:3px 10px; border-radius:20px; font-weight:600; }
+  .status-ok  { background:rgba(0,212,170,0.15); color:var(--get); border:1px solid rgba(0,212,170,0.3); }
+  .status-err { background:rgba(255,85,102,0.15); color:var(--delete); border:1px solid rgba(255,85,102,0.3); }
+  .status-idle{ background:var(--surface); color:var(--muted); border:1px solid var(--border); }
+  pre {
+    padding:1rem; font-family:'JetBrains Mono',monospace; font-size:0.76rem;
+    line-height:1.7; overflow:auto; max-height:300px; color:#c9d1d9;
+  }
+  .json-key { color:#79c0ff; }
+  .json-str { color:#a5d6ff; }
+  .json-num { color:#f2cc60; }
+  .json-bool{ color:#ff7b72; }
+  .json-method-GET   { color:var(--get); }
+  .json-method-POST  { color:var(--post); }
+  .json-method-PUT   { color:var(--put); }
+  .json-method-PATCH { color:var(--patch); }
+  .json-method-DELETE{ color:var(--delete); }
+
+  .loading { display:flex; align-items:center; gap:8px; padding:1rem; color:var(--muted); font-size:0.82rem; font-family:'JetBrains Mono',monospace; }
+  .dot { width:6px;height:6px;border-radius:50%;background:var(--muted);animation:pulse 1.2s infinite; }
+  .dot:nth-child(2){animation-delay:0.2s;} .dot:nth-child(3){animation-delay:0.4s;}
+  @keyframes pulse { 0%,80%,100%{opacity:0.3} 40%{opacity:1} }
+
+  @media(max-width:700px){ .layout{grid-template-columns:1fr;} .sidebar{border-right:none;border-bottom:1px solid var(--border);} .fields{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>API Methods Explorer</h1>
+  <span>REST · HTTP · CRUD</span>
+</header>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <button class="method-btn btn-GET active" onclick="selectMethod('GET_ALL')">
+      <span class="badge">GET</span> Fetch all users
+    </button>
+    <button class="method-btn btn-GET" onclick="selectMethod('GET_ONE')">
+      <span class="badge">GET</span> Fetch one user
+    </button>
+    <div class="sidebar-divider"></div>
+    <button class="method-btn btn-POST" onclick="selectMethod('POST')">
+      <span class="badge">POST</span> Create user
+    </button>
+    <div class="sidebar-divider"></div>
+    <button class="method-btn btn-PUT" onclick="selectMethod('PUT')">
+      <span class="badge">PUT</span> Replace user
+    </button>
+    <button class="method-btn btn-PATCH" onclick="selectMethod('PATCH')">
+      <span class="badge">PATCH</span> Update user
+    </button>
+    <div class="sidebar-divider"></div>
+    <button class="method-btn btn-DELETE" onclick="selectMethod('DELETE')">
+      <span class="badge">DELETE</span> Delete user
+    </button>
+
+    <div class="users-list">
+      <h3>Live Users</h3>
+      <div id="userList"></div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="panel-header">
+      <div>
+        <h2 id="panelTitle">GET — Fetch All Users</h2>
+        <p class="description" id="panelDesc">Retrieves the complete list of users. Read-only, safe, and idempotent.</p>
+      </div>
+      <div class="concept-badge" id="conceptBadge">Safe · Idempotent · Read</div>
+    </div>
+
+    <div class="panel-body">
+      <div class="url-bar" id="urlBar">
+        <span class="url-method" id="urlMethod" style="background:rgba(0,212,170,0.15);color:var(--get);border:1px solid rgba(0,212,170,0.3);">GET</span>
+        <span class="url-text"><span>http://localhost:5000</span>/api/users</span>
+      </div>
+
+      <div id="formArea"></div>
+
+      <div id="noteArea"></div>
+
+      <button class="send-btn" id="sendBtn" onclick="sendRequest()">Send Request ↗</button>
+
+      <div class="response-box">
+        <div class="response-head">
+          <span>Response</span>
+          <span class="status-pill status-idle" id="statusPill">waiting</span>
+        </div>
+        <div id="responseBody">
+          <div class="loading" style="opacity:0.4">
+            <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+            <span>Hit "Send Request" to call the API</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const BASE = 'http://localhost:5000';
+let currentMethod = 'GET_ALL';
+let selectedUserId = 1;
+
+const colors = { GET:'var(--get)', POST:'var(--post)', PUT:'var(--put)', PATCH:'var(--patch)', DELETE:'var(--delete)' };
+
+const methods = {
+  GET_ALL: {
+    label:'GET — Fetch All Users', verb:'GET', url:'/api/users',
+    desc:'Retrieves the complete list of users. Read-only, safe, and idempotent.',
+    concept:'Safe · Idempotent · Read',
+    note:'<strong>GET</strong> never modifies data. Use it to read resources. Returns 200 OK.',
+    form: null
+  },
+  GET_ONE: {
+    label:'GET — Fetch One User', verb:'GET', url:'/api/users/{id}',
+    desc:'Retrieves a single user by their ID from the URL path.',
+    concept:'Safe · Idempotent · Read',
+    note:'The <strong>ID goes in the URL path</strong>, not the body. e.g. /api/users/1',
+    form: null
+  },
+  POST: {
+    label:'POST — Create New User', verb:'POST', url:'/api/users',
+    desc:'Sends data in the request body to create a brand-new resource.',
+    concept:'Not Idempotent · Creates',
+    note:'<strong>POST</strong> is NOT idempotent — sending twice creates two users. Returns 201 Created.',
+    form: ['name','email','role']
+  },
+  PUT: {
+    label:'PUT — Replace Entire User', verb:'PUT', url:'/api/users/{id}',
+    desc:'Fully replaces the user. You must send ALL fields — missing fields get cleared.',
+    concept:'Idempotent · Full Replace',
+    note:'<strong>PUT</strong> = full overwrite. If you omit a field, it disappears. All fields required.',
+    form: ['name','email','role']
+  },
+  PATCH: {
+    label:'PATCH — Partially Update User', verb:'PATCH', url:'/api/users/{id}',
+    desc:'Sends only the fields you want to change. Other fields stay intact.',
+    concept:'Partial Update · Efficient',
+    note:'<strong>PATCH</strong> = surgical edit. Only send what changed. Other fields are untouched.',
+    form: ['name','email','role']
+  },
+  DELETE: {
+    label:'DELETE — Remove User', verb:'DELETE', url:'/api/users/{id}',
+    desc:'Permanently removes the user from the server.',
+    concept:'Idempotent · Destructive',
+    note:'<strong>DELETE</strong> is idempotent — deleting an already-deleted resource still results in "gone".',
+    form: null
+  }
+};
+
+function selectMethod(key) {
+  currentMethod = key;
+  document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  const m = methods[key];
+  document.getElementById('panelTitle').textContent = m.label;
+  document.getElementById('panelDesc').textContent = m.desc;
+  document.getElementById('conceptBadge').textContent = m.concept;
+  const c = colors[m.verb];
+  const urlMethod = document.getElementById('urlMethod');
+  urlMethod.textContent = m.verb;
+  urlMethod.style.color = c;
+  urlMethod.style.background = c.replace('var(','').replace(')','') + '22';
+  document.getElementById('urlBar').querySelector('.url-text').innerHTML =
+    `<span>http://localhost:5000</span>${m.url.replace('{id}','<span style="color:'+c+'">'+selectedUserId+'</span>')}`;
+  document.getElementById('sendBtn').style.background = c;
+  document.getElementById('sendBtn').style.color = '#000';
+  document.getElementById('noteArea').innerHTML = m.note
+    ? `<div class="note">${m.note}</div>` : '';
+  renderForm(m);
+  clearResponse();
+}
+
+function renderForm(m) {
+  const area = document.getElementById('formArea');
+  if (!m.form) { area.innerHTML = ''; return; }
+  area.innerHTML = `
+    <div class="form-section">
+      <h3>Request Body (JSON)</h3>
+      <div class="fields">
+        ${m.form.includes('name') ? `<div class="field"><label>name</label><input id="f_name" placeholder="Jane Doe"/></div>` : ''}
+        ${m.form.includes('email') ? `<div class="field"><label>email</label><input id="f_email" placeholder="jane@example.com"/></div>` : ''}
+        ${m.form.includes('role') ? `<div class="field"><label>role</label>
+          <select id="f_role"><option>Viewer</option><option>Editor</option><option>Admin</option></select>
+        </div>` : ''}
+      </div>
+    </div>`;
+}
+
+function clearResponse() {
+  document.getElementById('statusPill').className = 'status-pill status-idle';
+  document.getElementById('statusPill').textContent = 'waiting';
+  document.getElementById('responseBody').innerHTML = `
+    <div class="loading" style="opacity:0.4">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      <span>Hit "Send Request" to call the API</span>
+    </div>`;
+}
+
+async function sendRequest() {
+  const m = methods[currentMethod];
+  let url = BASE + m.url.replace('{id}', selectedUserId);
+  const opts = { method: m.verb, headers: { 'Content-Type': 'application/json' } };
+
+  if (m.form) {
+    const body = {};
+    if (document.getElementById('f_name'))  body.name  = document.getElementById('f_name').value;
+    if (document.getElementById('f_email')) body.email = document.getElementById('f_email').value;
+    if (document.getElementById('f_role'))  body.role  = document.getElementById('f_role').value;
+    opts.body = JSON.stringify(body);
+  }
+
+  document.getElementById('responseBody').innerHTML = `
+    <div class="loading">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      <span>Calling API...</span>
+    </div>`;
+  document.getElementById('statusPill').className = 'status-pill status-idle';
+  document.getElementById('statusPill').textContent = '...';
+
+  try {
+    const res = await fetch(url, opts);
+    const data = await res.json();
+    const pill = document.getElementById('statusPill');
+    pill.textContent = res.status + ' ' + (res.ok ? 'OK' : 'ERROR');
+    pill.className = 'status-pill ' + (res.ok ? 'status-ok' : 'status-err');
+    document.getElementById('responseBody').innerHTML = `<pre>${syntaxHighlight(data)}</pre>`;
+    loadUsers();
+  } catch(e) {
+    document.getElementById('statusPill').textContent = 'Network Error';
+    document.getElementById('statusPill').className = 'status-pill status-err';
+    document.getElementById('responseBody').innerHTML = `<pre style="color:var(--delete)">${e.message}\n\nMake sure app.py is running:\n  python app.py</pre>`;
+  }
+}
+
+function syntaxHighlight(json) {
+  let str = JSON.stringify(json, null, 2);
+  return str.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+    let cls = 'json-num';
+    if (/^"/.test(m)) {
+      if (/:$/.test(m)) {
+        const key = m.replace(/[":]/g,'');
+        if (key === 'method') return `<span class="json-key">${m}</span>`;
+        return `<span class="json-key">${m}</span>`;
+      }
+      const val = m.replace(/"/g,'');
+      if (['GET','POST','PUT','PATCH','DELETE'].includes(val))
+        return `<span class="json-method-${val}">"${val}"</span>`;
+      cls = 'json-str';
+    } else if (/true|false/.test(m)) cls = 'json-bool';
+    return `<span class="${cls}">${m}</span>`;
+  });
+}
+
+const avatarColors = ['#4f9fff','#00d4aa','#f0a500','#b06aff','#ff5566','#ff9240'];
+async function loadUsers() {
+  try {
+    const res = await fetch(BASE + '/api/users');
+    const data = await res.json();
+    const list = document.getElementById('userList');
+    list.innerHTML = data.data.map((u,i) => `
+      <div class="user-chip ${u.id===selectedUserId?'selected':''}" onclick="selectUser(${u.id})">
+        <div class="avatar" style="background:${avatarColors[i%6]}22;color:${avatarColors[i%6]};border:1px solid ${avatarColors[i%6]}44">${u.name.split(' ').map(n=>n[0]).join('')}</div>
+        <div class="user-info">
+          <div class="user-name">${u.name}</div>
+          <div class="user-role">#${u.id} · ${u.role}</div>
+        </div>
+      </div>`).join('');
+  } catch(e) {}
+}
+
+function selectUser(id) {
+  selectedUserId = id;
+  document.querySelectorAll('.user-chip').forEach(c => c.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+  selectMethod(currentMethod);
+}
+
+// init
+loadUsers();
+selectMethod('GET_ALL');
+</script>
+</body>
+</html>
